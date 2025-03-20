@@ -26,9 +26,9 @@
 
 % Output file name and directory
 inputGassDem = [];
-inputGassDem.title = 'GassDem_ModelSC3_Melt_AspectRatio5';
-inputGassDem.outputDir = '/Users/ekim/Documents/GassDem/';
-inputGassDem.inputDir = '/Users/ekim/Documents/GassDem/';
+inputGassDem.title = 'GassDem_Askja';
+inputGassDem.outputDir = '/space/jwf39/GassDem/outputdir/';
+inputGassDem.inputDir = '/space/jwf39/GassDem/';
 
 % Add path (input directory)
 if exist(inputGassDem.inputDir,'dir') == 0
@@ -46,6 +46,11 @@ else
     addpath(genpath(inputGassDem.outputDir));
 end
 
+other_params_fid = fopen('other_params.txt','r');
+formatSpec = '%f';
+size_other_params = [1 Inf];
+other_params = fscanf(other_params_fid,formatSpec,size_other_params)
+fclose(other_params_fid);
 
 %**************************************************************************
 %                        INPUT SECTION (user defined)                     *
@@ -74,9 +79,10 @@ end
 inputGassDem.errmax = 0.1; 
 
 % Fluid properties
-inputGassDem.bf = 1/14.91; % Fluid compressibility Bf = 1/Kf (1/GPa), Kf: Bulk modulus
+% inputGassDem.bf = 1/14.91; % Fluid compressibility Bf = 1/Kf (1/GPa), Kf: Bulk modulus
+inputGassDem.bf = 1/19.68;
 inputGassDem.visc = 10; % Fluid viscosity (Pa.s) 
-inputGassDem.vpf = 2.35; % Fluid Vp (km/s)
+inputGassDem.vpf = 2.70; % Fluid Vp (km/s)
 inputGassDem.rhof = 2.70; % Fluid density (g/cm3)
 
 % Preallocation
@@ -89,16 +95,21 @@ inputGassDem.axis = zeros(2,3);
 
 
 % Name of phase
-inputGassDem.mineral(1,1) = {'ModelSC3'};
-inputGassDem.mineral(2,1) = {'Basalt'};
+% inputGassDem.mineral(1,1) = {'ModelSC3'};
+% inputGassDem.mineral(2,1) = {'Basalt'};
+inputGassDem.mineral(1,1) = {'Host'};
+inputGassDem.mineral(2,1) = {'Melt'};
 
 % Elastic Constant Data (GPa) for phases 1 and 2
-inputGassDem.efile(1,1) = {'Morales2018_ModelSC3_GPa.txt'};
-inputGassDem.efile(2,1) = {'Basalt1200C_GPa.txt'};
+% inputGassDem.efile(1,1) = {'Morales2018_ModelSC3_GPa.txt'};
+% inputGassDem.efile(2,1) = {'Basalt1200C_GPa.txt'};
+% inputGassDem.efile(1,1) = {'host_material.txt'};
+inputGassDem.efile(1,1) = {'anisotropic_host_material.txt'};
+inputGassDem.efile(2,1) = {'melt_inclusion_material.txt'};
 
 % Density (g/cm3)
-inputGassDem.rho(1,1) = 2.7292;
-inputGassDem.rho(2,1) = 2.70;
+inputGassDem.rho(1,1) = other_params(1,1);
+inputGassDem.rho(2,1) = other_params(1,2);
 
 
 % Ellipsoid inclusion semi-axes A1,A2,A3
@@ -148,9 +159,14 @@ inputGassDem.ioptoe(2,1) = 2; % inclusion (fluid)
 %                      South=180            
 %                                           
 % Ellipsoid Semi-axes lengths: [A1,A2,A3]           
+% inputGassDem.axis(1,:) = [1,1,1]; % host: sphere 
+% inputGassDem.axis(2,1) = 5; % Inclusion A1
+% inputGassDem.axis(2,2) = 5; % Inclusion A2
+% inputGassDem.axis(2,3) = 1; % Inclusion A3
+inclusion_length = other_params(1,3)
 inputGassDem.axis(1,:) = [1,1,1]; % host: sphere 
-inputGassDem.axis(2,1) = 5; % Inclusion A1
-inputGassDem.axis(2,2) = 5; % Inclusion A2
+inputGassDem.axis(2,1) = inclusion_length; % Inclusion A1
+inputGassDem.axis(2,2) = inclusion_length; % Inclusion A2
 inputGassDem.axis(2,3) = 1; % Inclusion A3
 
 % User defined shape ellipsoid orientation
@@ -162,17 +178,18 @@ inputGassDem.axis(2,3) = 1; % Inclusion A3
 % xl = Inclination (degree) of ellipsoid semi-axis A1
 % af = Azimuth (degree) of ellipsoid semi-axis A3
 % xf = Inclination (degree) of ellipsoid semi-axis A3
-inputGassDem.al = 90;
+inputGassDem.al = 0;
 inputGassDem.xl = 0;
 inputGassDem.af = 0;
-inputGassDem.xf = 0;
+inputGassDem.xf = 90;
         
 % Which phase is the inclusion (1 or 2)? 
 % IDEM = 2;
 inputGassDem.idem = 2;
 
 % vliq = Max. volume Fraction of fluid (0-1)
-inputGassDem.vliq = 0.2;
+max_melt_fraction = other_params(1,4);
+inputGassDem.vliq = max_melt_fraction;
 
 %**************************************************************************
 %                   END OF INPUT SECTION (user defined)                   *
@@ -671,6 +688,7 @@ nstep = (v2-v1)*1000;
 
 % Step size
 dVb = (v2-v1)/(nstep);
+% dVb = other_params(1,5);
 
 % Starting value v1 will correspond to Vb in loop 13
 Vb = v1;
@@ -742,7 +760,7 @@ for  k = 1:nstep2
     Cdry(:,:) = Cdem2(:,:);
     
     % Gassmann's (1951) poro-elastic formula for saturated porous medium
-    vpore = Vb;    
+    vpore = 0;    
     [Csat] = gasman(Cdry,Csolid,bf,vpore,Csat);
 
     % Density = Fluid(inclusion) + Rock(background) density
